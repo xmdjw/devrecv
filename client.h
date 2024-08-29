@@ -3,5 +3,6 @@
 
 void check_args(int argc,char* argv[],char* ip,int* port);
 void print_help();
+void print_license();
 
 #endif
