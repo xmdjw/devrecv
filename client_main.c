@@ -1,24 +1,32 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <time.h>
+#include <errno.h>
 #include <unistd.h>
 #include <arpa/inet.h>	
 #include <sys/socket.h> 
+#include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>	
 #include "client.h"
 
-#define SECOND 1000  //sleep() function use millisecond
+#define SECOND 1
 #define MAXCHAR 255  //max char of filename
-#define BUF_SIZE 1000 
+#define BUF_SIZE 1024 
 
 int main(int argc,char* argv[])
 {
 	char read_buffer[BUF_SIZE];
 	char* main_buffer = NULL;
 	int main_count = 0;//not include '\0'
+
 	char ip[15];  //if "999.999.999.999" 
 	int port; 
 	char filename[MAXCHAR];
+
+	int sockfd; 
 
 	check_args(argc,argv,ip,&port);
 
@@ -27,7 +35,10 @@ int main(int argc,char* argv[])
 	while (1)
 	{
 		//create a socket
-		int sock = socket(AF_INET,SOCK_STREAM,0);
+		while ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0){
+			fprintf(stderr,"Create socket fail,retry...\n");
+			sleep(1 * SECOND);
+		}
 
 		//bind the socket to the IP and port
 		struct sockaddr_in serv_addr;
@@ -38,7 +49,7 @@ int main(int argc,char* argv[])
 		serv_addr.sin_addr.s_addr = inet_addr(ip); //specific IP address
 		serv_addr.sin_port = htons(port);  //port
 
-		while ( (connect(sock, (struct sockaddr*)&serv_addr ,sizeof(serv_addr) )) != 0)
+		while ( (connect(sockfd, (struct sockaddr*)&serv_addr ,sizeof(serv_addr) )) != 0)
 		{ 
 			fprintf(stderr,"connect error: ip=%s, port=%d. retry...\n",ip, port);
 			sleep(3 * SECOND);
@@ -50,7 +61,7 @@ int main(int argc,char* argv[])
 		//read the server returns data
 		int count;
 		memset(read_buffer,0,sizeof(read_buffer));
-		while((count = read(sock,read_buffer,sizeof(read_buffer)-1 )) > 0){
+		while((count = read(sockfd,read_buffer,sizeof(read_buffer)-1 )) > 0){
 			main_count += count;
 			main_buffer = realloc(main_buffer, main_count + 1); //+1='\0'
 
@@ -59,7 +70,7 @@ int main(int argc,char* argv[])
 			memset(read_buffer,0,sizeof(read_buffer));
 		}
 		//close socket
-		close(sock);
+		close(sockfd);
 		
 		//write to file
 		FILE* fp;
